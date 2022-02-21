@@ -1,10 +1,10 @@
-import type { NextPage, GetServerSideProps, InferGetServerSidePropsType} from 'next'
+import type { NextPage, GetStaticProps, InferGetStaticPropsType} from 'next'
 import React from 'react';
 import type {Stories} from '../../components/types/stories';
 import axios from 'axios';
 import StoryHighlightsComponent from '../../components/elements/storyHighlightsComponent';
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getStaticProps: GetStaticProps = async (context) => {
   try {
     const res = await axios(process.env.REACT_APP_API + 'stories/');
     const stories: Stories[] = await res.data;
@@ -26,7 +26,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 }
 
-const StoriesPage: NextPage = ({ data }: InferGetServerSidePropsType<typeof getServerSideProps>) => {
+const StoriesPage: NextPage = ({ data }: InferGetStaticPropsType<typeof getStaticProps>) => {
   return (
     <div>
       <h1>
