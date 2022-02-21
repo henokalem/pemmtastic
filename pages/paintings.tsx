@@ -1,44 +1,93 @@
-import type { NextPage } from 'next'
-import Mirador from '../components/libs/mirador/mirador'
+import type { NextPage, GetServerSideProps, InferGetServerSidePropsType } from 'next'
+import React, { useEffect, useState } from 'react';
+import ReactPaginate from 'react-paginate';
+import type {Paintings} from '../components/types/paintings';
+import ImagesComponent from '../components/elements/imagesComponent';
+import PaginationButtons from '../components/elements/paginationButtons';
+import axios from 'axios';
 
+const IMAGES_PER_PAGE = 9
 
-const Paintings: NextPage = () => {
-  const config = {
-    id: 'iiifTest',
-    window: {
-      allowClose: false,
-    },
-    workspaceControlPanel: {
-      enabled: false,
-    },
-    windows: [
-    {
-      loadedManifest: '/kebranegast.json',
-    },
-    {
-      loadedManifest: '/page.json',
-    },
-    {
-      loadedManifest: 'https://api.bl.uk/metadata/iiif/ark:/81055/vdc_100054876611.0x000001/manifest.json',
-    },
-    {
-      loadedManifest: 'https://api.bl.uk/metadata/iiif/ark:/81055/vdc_100054876611.0x000001/manifest.json',
-    },
-    {
-      loadedManifest: 'https://figgy.princeton.edu/concern/scanned_resources/6717f91a-c1f9-473a-8e62-25d6d6a1bc0f/manifest',
-    }],
-  };
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  try {
+    const res = await axios(process.env.REACT_APP_API + 'images/');
+    const images: Paintings[] = await res.data;
+    let imageUris = [];
+    for (let i = 0; i < images.length; i++) {
+        if (images[i].image_link) {
+        let breakup = images[i].image_link!.split("full");
+        if (breakup.length === 3) {
+          //TODO: Update this and use a more standardized way to format how to display the image
+          images[i].image_link = breakup[0] + "full" + breakup[1] + "400," + breakup[2];
+        }
+        imageUris.push(images[i].image_link);
+      }
+    }
+    return {
+      props: {
+        data: {
+          imageUris: imageUris
+        }
+      }
+    }
+  } catch {
+      return {
+        props: {
+          data: {
+            imageUris: []
+          }
+        }
+      }
+  }
+}
+
+const PaintingsPage: NextPage = ({ data }: InferGetServerSidePropsType<typeof getServerSideProps>) => {
+    // We start with an empty list of items.
+    const emptyItems: string[] = [];
+    const [currentItems, setCurrentItems] = useState(emptyItems);
+    const [pageCount, setPageCount] = useState(0);
+    // Here we use item offsets; we could also use page offsets
+    // following the API or data you're working with.
+    const [itemOffset, setItemOffset] = useState(0);
+    useEffect(() => {
+      // Fetch items from another resources.
+      const endOffset = itemOffset + IMAGES_PER_PAGE;
+      setCurrentItems(data.imageUris.slice(itemOffset, endOffset));
+      setPageCount(Math.ceil(data.imageUris.length / IMAGES_PER_PAGE));
+    }, [itemOffset, IMAGES_PER_PAGE]);
+  
+    // Invoke when user click to request another page.
+    const handlePageClick = (event: any) => {
+      const newOffset = (event.selected * IMAGES_PER_PAGE) % data.imageUris.length;
+      setItemOffset(newOffset);
+    };
+
+    const imagesObject: object = {
+      "images": currentItems
+    };
+
   return (
-    <div className="h-full">
+    <div>
         <h1>
           Paintings
         </h1>
-        <div className="relative h-full w-auto">
-          <div id="iiifTest"> </div>
-          <Mirador config={config} />
+        <div className="flex flex-wrap justify-center">
+          <ImagesComponent {...imagesObject}/>
         </div>
+        <div className="ml-20 mr-20">
+            <div id="paginator"></div>
+            <ReactPaginate
+              className="flex bg-gray-400 justify-center"
+              breakLabel="..."
+              nextLabel={PaginationButtons("Next")}
+              onPageChange={handlePageClick}
+              pageRangeDisplayed={5}
+              pageCount={pageCount}
+              previousLabel={PaginationButtons("Previous")}
+            />
+          </div>
     </div>
   )
 }
 
-export default Paintings
+export default PaintingsPage
